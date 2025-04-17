@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Real Time Sensor Data</title>
+    <title>Real Time Sensor Dashboard</title>
     <style>
       body {
         text-align: center;
@@ -35,46 +35,31 @@
         messagingSenderId: "62303799348",
       };
       firebase.initializeApp(config);
-      const database = firebase.database().ref("Arduino/Data");
+      const database = firebase.database().ref("data_raul");
     </script>
 
     <script>
-      let tempChart, humChart;
+      let tempChart, humChart, co2Chart, pmChart;
 
-      // Sort and prepare temperature data
-      function prepareTempData(dataObj) {
-        const tempData = [];
+      function prepareData(dataObj, keyName) {
+        const data = [];
         for (let key in dataObj) {
           if (dataObj.hasOwnProperty(key)) {
-            tempData.push({
+            data.push({
               label: key,
-              value: dataObj[key]["temp"]
+              value: dataObj[key][keyName]
             });
           }
         }
-        tempData.sort((a, b) => a.label.localeCompare(b.label));
-        return tempData;
+        data.sort((a, b) => a.label.localeCompare(b.label));
+        return data;
       }
 
-      // Sort and prepare humidity data
-      function prepareHumData(dataObj) {
-        const humData = [];
-        for (let key in dataObj) {
-          if (dataObj.hasOwnProperty(key)) {
-            humData.push({
-              label: key,
-              value: dataObj[key]["hum"]
-            });
-          }
-        }
-        humData.sort((a, b) => a.label.localeCompare(b.label));
-        return humData;
-      }
-
-      // Initialize both charts
-      function initCharts(data) {
-        const tempData = prepareTempData(data);
-        const humData = prepareHumData(data);
+      function initAllCharts(data) {
+        const tempData = prepareData(data, "temp");
+        const humData = prepareData(data, "hum");
+        const co2Data = prepareData(data, "CO2");
+        const pmData = prepareData(data, "PM");
 
         tempChart = new FusionCharts({
           type: "line",
@@ -113,42 +98,88 @@
             data: humData
           }
         }).render();
+
+        co2Chart = new FusionCharts({
+          type: "line",
+          renderAt: "co2-chart",
+          width: "750",
+          height: "400",
+          dataFormat: "json",
+          dataSource: {
+            chart: {
+              caption: "CO2 Readings",
+              xAxisName: "Timestamp",
+              yAxisName: "CO2 (ppm)",
+              numberSuffix: " ppm",
+              theme: "fusion",
+              showValues: "0"
+            },
+            data: co2Data
+          }
+        }).render();
+
+        pmChart = new FusionCharts({
+          type: "line",
+          renderAt: "pm-chart",
+          width: "750",
+          height: "400",
+          dataFormat: "json",
+          dataSource: {
+            chart: {
+              caption: "Particulate Matter (PM) Readings",
+              xAxisName: "Timestamp",
+              yAxisName: "PM Level",
+              numberSuffix: "",
+              theme: "fusion",
+              showValues: "0"
+            },
+            data: pmData
+          }
+        }).render();
       }
 
-      // Update both charts and text
-      function updateCharts(data) {
+      function updateAllCharts(data) {
         const sortedKeys = Object.keys(data).sort();
         const latestKey = sortedKeys[sortedKeys.length - 1];
-        const latestTemp = data[latestKey]?.temp;
-        const latestHum = data[latestKey]?.hum;
+        const latest = data[latestKey];
 
-        document.getElementById("temperature").innerText = "Latest Temperature: " + latestTemp + "°C";
-        document.getElementById("humidity").innerText = "Latest Humidity: " + latestHum + "%";
+        document.getElementById("temperature").innerText = "Latest Temperature: " + latest?.temp + "°C";
+        document.getElementById("humidity").innerText = "Latest Humidity: " + latest?.hum + "%";
+        document.getElementById("co2").innerText = "Latest CO2: " + latest?.CO2 + " ppm";
+        document.getElementById("pm").innerText = "Latest PM: " + latest?.PM;
 
-        const tempData = prepareTempData(data);
-        const humData = prepareHumData(data);
+        const tempData = prepareData(data, "temp");
+        const humData = prepareData(data, "hum");
+        const co2Data = prepareData(data, "CO2");
+        const pmData = prepareData(data, "PM");
 
-        if (tempChart && humChart) {
+        if (tempChart && humChart && co2Chart && pmChart) {
           tempChart.setJSONData({
             chart: tempChart.args.dataSource.chart,
             data: tempData
           });
-
           humChart.setJSONData({
             chart: humChart.args.dataSource.chart,
             data: humData
           });
+          co2Chart.setJSONData({
+            chart: co2Chart.args.dataSource.chart,
+            data: co2Data
+          });
+          pmChart.setJSONData({
+            chart: pmChart.args.dataSource.chart,
+            data: pmData
+          });
         } else {
-          initCharts(data);
+          initAllCharts(data);
         }
       }
 
-      // Listen to Firebase in real-time
       window.addEventListener("load", function () {
         database.on("value", function (snapshot) {
           const data = snapshot.val();
           if (data) {
-            updateCharts(data);
+            updateAllCharts(data);
           }
         });
       });
@@ -157,15 +188,15 @@
 
   <body>
     <h2>Real-Time Sensor Dashboard</h2>
+
     <div class="sensor-value" id="temperature">Loading temperature...</div>
     <div class="sensor-value" id="humidity">Loading humidity...</div>
+    <div class="sensor-value" id="co2">Loading CO2...</div>
+    <div class="sensor-value" id="pm">Loading PM...</div>
 
-    <div class="chart-box">
-      <div id="temp-chart"></div>
-    </div>
-
-    <div class="chart-box">
-      <div id="hum-chart"></div>
-    </div>
+    <div class="chart-box" id="temp-chart"></div>
+    <div class="chart-box" id="hum-chart"></div>
+    <div class="chart-box" id="co2-chart"></div>
+    <div class="chart-box" id="pm-chart"></div>
   </body>
 </html>
