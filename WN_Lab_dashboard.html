@@ -35,11 +35,13 @@
         messagingSenderId: "62303799348",
       };
       firebase.initializeApp(config);
-      const database = firebase.database().ref("Arduino/Data");
+      const liveRef = firebase.database().ref("Arduino/Data");
+      const predictionRef = firebase.database().ref("Arduino/Predictions");
     </script>
 
     <script>
       let tempChart, humChart, co2Chart, pmChart;
+      let predTempChart, predHumChart, predCo2Chart, predPmChart;
 
       function prepareData(dataObj, keyName) {
         const data = [];
@@ -52,134 +54,111 @@
           }
         }
         data.sort((a, b) => a.label.localeCompare(b.label));
-        return data;
+        return data.slice(-25); // Keep last 25 only
       }
 
-      function initAllCharts(data) {
-        const tempData = prepareData(data, "temp");
-        const humData = prepareData(data, "hum");
-        const co2Data = prepareData(data, "CO2");
-        const pmData = prepareData(data, "PM");
-
-        tempChart = new FusionCharts({
+      function initChart(renderAt, caption, xName, yName, suffix, dataArr) {
+        return new FusionCharts({
           type: "line",
-          renderAt: "temp-chart",
+          renderAt: renderAt,
           width: "750",
           height: "400",
           dataFormat: "json",
           dataSource: {
             chart: {
-              caption: "Temperature Readings",
-              xAxisName: "Timestamp",
-              yAxisName: "Temperature (°C)",
-              numberSuffix: "°C",
+              caption: caption,
+              xAxisName: xName,
+              yAxisName: yName,
+              numberSuffix: suffix,
               theme: "fusion",
               showValues: "0"
             },
-            data: tempData
-          }
-        }).render();
-
-        humChart = new FusionCharts({
-          type: "line",
-          renderAt: "hum-chart",
-          width: "750",
-          height: "400",
-          dataFormat: "json",
-          dataSource: {
-            chart: {
-              caption: "Humidity Readings",
-              xAxisName: "Timestamp",
-              yAxisName: "Humidity (%)",
-              numberSuffix: "%",
-              theme: "fusion",
-              showValues: "0"
-            },
-            data: humData
-          }
-        }).render();
-
-        co2Chart = new FusionCharts({
-          type: "line",
-          renderAt: "co2-chart",
-          width: "750",
-          height: "400",
-          dataFormat: "json",
-          dataSource: {
-            chart: {
-              caption: "CO2 Readings",
-              xAxisName: "Timestamp",
-              yAxisName: "CO2 (ppm)",
-              numberSuffix: " ppm",
-              theme: "fusion",
-              showValues: "0"
-            },
-            data: co2Data
-          }
-        }).render();
-
-        pmChart = new FusionCharts({
-          type: "line",
-          renderAt: "pm-chart",
-          width: "750",
-          height: "400",
-          dataFormat: "json",
-          dataSource: {
-            chart: {
-              caption: "Particulate Matter (PM) Readings",
-              xAxisName: "Timestamp",
-              yAxisName: "PM Level",
-              numberSuffix: "",
-              theme: "fusion",
-              showValues: "0"
-            },
-            data: pmData
+            data: dataArr
           }
         }).render();
       }
 
-      function updateAllCharts(data) {
-        const sortedKeys = Object.keys(data).sort();
+      function updateChart(chart, caption, dataArr) {
+        chart.setJSONData({
+          chart: chart.args.dataSource.chart,
+          data: dataArr
+        });
+      }
+
+      function initAllCharts(liveData, predData) {
+        // LIVE CHARTS
+        tempChart = initChart("temp-chart", "Temperature Readings", "Timestamp", "Temperature (°C)", "°C", prepareData(liveData, "temp"));
+        humChart = initChart("hum-chart", "Humidity Readings", "Timestamp", "Humidity (%)", "%", prepareData(liveData, "hum"));
+        co2Chart = initChart("co2-chart", "CO2 Readings", "Timestamp", "CO2 (ppm)", " ppm", prepareData(liveData, "CO2"));
+        pmChart = initChart("pm-chart", "Particulate Matter (PM) Readings", "Timestamp", "PM Level", "", prepareData(liveData, "PM"));
+
+        // PREDICTIVE CHARTS
+        predTempChart = initChart("pred-temp-chart", "Predicted Temperature", "Timestamp", "Temp (°C)", "°C", prepareData(predData, "temp"));
+        predHumChart = initChart("pred-hum-chart", "Predicted Humidity", "Timestamp", "Humidity (%)", "%", prepareData(predData, "hum"));
+        predCo2Chart = initChart("pred-co2-chart", "Predicted CO2", "Timestamp", "CO2 (ppm)", " ppm", prepareData(predData, "CO2"));
+        predPmChart = initChart("pred-pm-chart", "Predicted PM", "Timestamp", "PM Level", "", prepareData(predData, "PM"));
+      }
+
+      function updateAllCharts(liveData, predData) {
+        const sortedKeys = Object.keys(liveData).sort();
         const latestKey = sortedKeys[sortedKeys.length - 1];
-        const latest = data[latestKey];
+        const latest = liveData[latestKey];
 
         document.getElementById("temperature").innerText = "Latest Temperature: " + latest?.temp + "°C";
         document.getElementById("humidity").innerText = "Latest Humidity: " + latest?.hum + "%";
         document.getElementById("co2").innerText = "Latest CO2: " + latest?.CO2 + " ppm";
         document.getElementById("pm").innerText = "Latest PM: " + latest?.PM;
 
-        const tempData = prepareData(data, "temp");
-        const humData = prepareData(data, "hum");
-        const co2Data = prepareData(data, "CO2");
-        const pmData = prepareData(data, "PM");
+        // Prepare live data
+        const tempData = prepareData(liveData, "temp");
+        const humData = prepareData(liveData, "hum");
+        const co2Data = prepareData(liveData, "CO2");
+        const pmData = prepareData(liveData, "PM");
 
-        if (tempChart && humChart && co2Chart && pmChart) {
-          tempChart.setJSONData({
-            chart: tempChart.args.dataSource.chart,
-            data: tempData
-          });
-          humChart.setJSONData({
-            chart: humChart.args.dataSource.chart,
-            data: humData
-          });
-          co2Chart.setJSONData({
-            chart: co2Chart.args.dataSource.chart,
-            data: co2Data
-          });
-          pmChart.setJSONData({
-            chart: pmChart.args.dataSource.chart,
-            data: pmData
-          });
+        // Prepare prediction data
+        const predTempData = prepareData(predData, "temp");
+        const predHumData = prepareData(predData, "hum");
+        const predCo2Data = prepareData(predData, "CO2");
+        const predPmData = prepareData(predData, "PM");
+
+        if (tempChart && predTempChart) {
+          updateChart(tempChart, "Temperature Readings", tempData);
+          updateChart(humChart, "Humidity Readings", humData);
+          updateChart(co2Chart, "CO2 Readings", co2Data);
+          updateChart(pmChart, "PM Readings", pmData);
+
+          updateChart(predTempChart, "Predicted Temperature", predTempData);
+          updateChart(predHumChart, "Predicted Humidity", predHumData);
+          updateChart(predCo2Chart, "Predicted CO2", predCo2Data);
+          updateChart(predPmChart, "Predicted PM", predPmData);
         } else {
-          initAllCharts(data);
+          initAllCharts(liveData, predData);
         }
       }
 
       window.addEventListener("load", function () {
-        database.on("value", function (snapshot) {
+        let liveDataCache = {};
+        let predDataCache = {};
+
+        function tryUpdate() {
+          if (Object.keys(liveDataCache).length > 0 && Object.keys(predDataCache).length > 0) {
+            updateAllCharts(liveDataCache, predDataCache);
+          }
+        }
+
+        liveRef.on("value", function (snapshot) {
           const data = snapshot.val();
           if (data) {
-            updateAllCharts(data);
+            liveDataCache = data;
+            tryUpdate();
+          }
+        });
+
+        predictionRef.on("value", function (snapshot) {
+          const data = snapshot.val();
+          if (data) {
+            predDataCache = data;
+            tryUpdate();
           }
         });
       });
@@ -194,9 +173,17 @@
     <div class="sensor-value" id="co2">Loading CO2...</div>
     <div class="sensor-value" id="pm">Loading PM...</div>
 
+    <!-- Live Charts -->
     <div class="chart-box" id="temp-chart"></div>
     <div class="chart-box" id="hum-chart"></div>
     <div class="chart-box" id="co2-chart"></div>
     <div class="chart-box" id="pm-chart"></div>
+
+    <!-- Predictive Charts -->
+    <h2>Predicted Sensor Readings</h2>
+    <div class="chart-box" id="pred-temp-chart"></div>
+    <div class="chart-box" id="pred-hum-chart"></div>
+    <div class="chart-box" id="pred-co2-chart"></div>
+    <div class="chart-box" id="pred-pm-chart"></div>
   </body>
 </html>
