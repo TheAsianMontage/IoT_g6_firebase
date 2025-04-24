@@ -1,19 +1,42 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Real Time Sensor Dashboard</title>
+    <title>Real-Time Sensor Dashboard</title>
     <style>
       body {
         text-align: center;
         font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        overflow-x: hidden;
       }
+
       .sensor-value {
         font-size: 22px;
         margin: 10px 0;
       }
+
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin: 0 auto;
+        padding: 0 20px; /* Add small padding on sides */
+        width: 100%;
+        box-sizing: border-box;
+        /* Removed max-width */
+      }
+
       .chart-box {
-        margin: 30px auto;
-        width: 80%;
+        width: 100%;
+        max-width: 100%;
+        height: 250px;
+      }
+
+      @media (max-width: 768px) {
+        .grid-container {
+          grid-template-columns: 1fr; /* Stack charts vertically */
+        }
       }
     </style>
 
@@ -54,15 +77,15 @@
           }
         }
         data.sort((a, b) => a.label.localeCompare(b.label));
-        return data.slice(-25); // Keep last 25 only
+        return data.slice(-25);
       }
 
       function initChart(renderAt, caption, xName, yName, suffix, dataArr) {
         return new FusionCharts({
           type: "line",
           renderAt: renderAt,
-          width: "750",
-          height: "400",
+          width: "100%", // ✅ Responsive width
+          height: "250",
           dataFormat: "json",
           dataSource: {
             chart: {
@@ -86,13 +109,11 @@
       }
 
       function initAllCharts(liveData, predData) {
-        // LIVE CHARTS
         tempChart = initChart("temp-chart", "Temperature Readings", "Timestamp", "Temperature (°C)", "°C", prepareData(liveData, "temp"));
         humChart = initChart("hum-chart", "Humidity Readings", "Timestamp", "Humidity (%)", "%", prepareData(liveData, "hum"));
         co2Chart = initChart("co2-chart", "CO2 Readings", "Timestamp", "CO2 (ppm)", " ppm", prepareData(liveData, "CO2"));
         pmChart = initChart("pm-chart", "Particulate Matter (PM) Readings", "Timestamp", "PM Level", "", prepareData(liveData, "PM"));
 
-        // PREDICTIVE CHARTS
         predTempChart = initChart("pred-temp-chart", "Predicted Temperature", "Timestamp", "Temp (°C)", "°C", prepareData(predData, "temp"));
         predHumChart = initChart("pred-hum-chart", "Predicted Humidity", "Timestamp", "Humidity (%)", "%", prepareData(predData, "hum"));
         predCo2Chart = initChart("pred-co2-chart", "Predicted CO2", "Timestamp", "CO2 (ppm)", " ppm", prepareData(predData, "CO2"));
@@ -109,13 +130,11 @@
         document.getElementById("co2").innerText = "Latest CO2: " + latest?.CO2 + " ppm";
         document.getElementById("pm").innerText = "Latest PM: " + latest?.PM;
 
-        // Prepare live data
         const tempData = prepareData(liveData, "temp");
         const humData = prepareData(liveData, "hum");
         const co2Data = prepareData(liveData, "CO2");
         const pmData = prepareData(liveData, "PM");
 
-        // Prepare prediction data
         const predTempData = prepareData(predData, "temp");
         const predHumData = prepareData(predData, "hum");
         const predCo2Data = prepareData(predData, "CO2");
@@ -168,22 +187,23 @@
   <body>
     <h2>Real-Time Sensor Dashboard</h2>
 
-    <div class="sensor-value" id="temperature">Loading temperature...</div>
-    <div class="sensor-value" id="humidity">Loading humidity...</div>
-    <div class="sensor-value" id="co2">Loading CO2...</div>
-    <div class="sensor-value" id="pm">Loading PM...</div>
+    <div class="sensor-value" id="temperature" style="display: none;"></div>
+    <div class="sensor-value" id="humidity" style="display: none;"></div>
+    <div class="sensor-value" id="co2" style="display: none;"></div>
+    <div class="sensor-value" id="pm" style="display: none;"></div>
 
-    <!-- Live Charts -->
-    <div class="chart-box" id="temp-chart"></div>
-    <div class="chart-box" id="hum-chart"></div>
-    <div class="chart-box" id="co2-chart"></div>
-    <div class="chart-box" id="pm-chart"></div>
+    <div class="grid-container">
+      <div class="chart-box" id="temp-chart"></div>
+      <div class="chart-box" id="pred-temp-chart"></div>
 
-    <!-- Predictive Charts -->
-    <h2>Predicted Sensor Readings</h2>
-    <div class="chart-box" id="pred-temp-chart"></div>
-    <div class="chart-box" id="pred-hum-chart"></div>
-    <div class="chart-box" id="pred-co2-chart"></div>
-    <div class="chart-box" id="pred-pm-chart"></div>
+      <div class="chart-box" id="hum-chart"></div>
+      <div class="chart-box" id="pred-hum-chart"></div>
+
+      <div class="chart-box" id="co2-chart"></div>
+      <div class="chart-box" id="pred-co2-chart"></div>
+
+      <div class="chart-box" id="pm-chart"></div>
+      <div class="chart-box" id="pred-pm-chart"></div>
+    </div>
   </body>
 </html>
